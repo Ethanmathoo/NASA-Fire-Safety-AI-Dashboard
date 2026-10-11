@@ -1,0 +1,1483 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NASA Fire Safety AI Dashboard - Mission Operations Center</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+      :root {
+        --bg-deep: #020810;
+        --bg-main: #050d18;
+        --bg-panel: #0a1428;
+        --bg-panel-light: #0f1a2e;
+        --border-glow: rgba(72, 181, 255, 0.15);
+        --border-subtle: rgba(255, 255, 255, 0.04);
+        --text-primary: #e8f0ff;
+        --text-secondary: #a8c5e0;
+        --text-muted: #6b8ab5;
+        --accent-primary: #1e90ff;
+        --accent-secondary: #00d4ff;
+        --accent-tertiary: #48b5ff;
+        --status-critical: #ff3333;
+        --status-high: #ff6b5b;
+        --status-moderate: #ffa500;
+        --status-low: #26d946;
+        --status-ok: #30b0c0;
+        --glow-blue: 0 0 20px rgba(30, 144, 255, 0.3);
+        --glow-cyan: 0 0 15px rgba(0, 212, 255, 0.25);
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      html, body, #root {
+        width: 100%;
+        height: 100%;
+      }
+
+      body {
+        font-family: 'Courier New', 'Trebuchet MS', 'Segoe UI', Roboto, Arial, sans-serif;
+        background: radial-gradient(ellipse at top, rgba(30, 144, 255, 0.08) 0%, transparent 60%),
+                    linear-gradient(180deg, #020810 0%, #051025 100%);
+        color: var(--text-primary);
+        line-height: 1.5;
+        overflow-x: hidden;
+      }
+
+      .mission-control {
+        min-height: 100vh;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .top-bar {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        align-items: center;
+        gap: 24px;
+        margin-bottom: 20px;
+        padding: 16px;
+        border: 1px solid var(--border-glow);
+        border-radius: 12px;
+        background: linear-gradient(135deg, rgba(10, 20, 40, 0.8), rgba(15, 26, 46, 0.6));
+        box-shadow: var(--glow-blue);
+      }
+
+      .mission-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .mission-logo {
+        width: 32px;
+        height: 32px;
+        background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        color: #000;
+        box-shadow: var(--glow-cyan);
+      }
+
+      .mission-title {
+        font-size: 1.6rem;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        background: linear-gradient(90deg, var(--accent-secondary), var(--accent-primary));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+
+      .mission-subtitle {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      .status-banner {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 16px;
+        border-radius: 8px;
+        background: rgba(76, 175, 80, 0.1);
+        border: 1px solid rgba(76, 175, 80, 0.3);
+      }
+
+      .status-light {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--status-ok);
+        animation: pulse 2s infinite;
+      }
+
+      @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+      }
+
+      .status-text {
+        font-size: 0.8rem;
+        color: var(--status-ok);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+
+      .api-input {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .api-input label {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+
+      .api-input input {
+        padding: 6px 10px;
+        border: 1px solid var(--border-glow);
+        border-radius: 6px;
+        background: rgba(10, 20, 40, 0.8);
+        color: var(--text-primary);
+        font-size: 0.8rem;
+        width: 200px;
+      }
+
+      .api-input input::placeholder {
+        color: var(--text-muted);
+      }
+
+      .ai-toggle {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        text-transform: uppercase;
+      }
+
+      .toggle-switch {
+        width: 32px;
+        height: 18px;
+        background: rgba(30, 144, 255, 0.2);
+        border: 1px solid var(--border-glow);
+        border-radius: 12px;
+        cursor: pointer;
+        position: relative;
+        transition: all 0.3s ease;
+      }
+
+      .toggle-switch.active {
+        background: rgba(30, 144, 255, 0.5);
+      }
+
+      .toggle-thumb {
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 14px;
+        height: 14px;
+        background: var(--accent-primary);
+        border-radius: 50%;
+        transition: left 0.3s ease;
+      }
+
+      .toggle-switch.active .toggle-thumb {
+        left: 16px;
+      }
+
+      .filters-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 12px;
+        margin-bottom: 20px;
+        padding: 16px;
+        border: 1px solid var(--border-glow);
+        border-radius: 12px;
+        background: rgba(10, 20, 40, 0.6);
+      }
+
+      .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .filter-label {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        letter-spacing: 0.05em;
+      }
+
+      select {
+        padding: 8px 10px;
+        border: 1px solid var(--border-glow);
+        border-radius: 8px;
+        background: rgba(10, 20, 40, 0.9);
+        color: var(--text-primary);
+        font-size: 0.85rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      select:hover {
+        border-color: var(--accent-secondary);
+        box-shadow: 0 0 10px rgba(0, 212, 255, 0.2);
+      }
+
+      select:focus {
+        outline: none;
+        border-color: var(--accent-primary);
+        box-shadow: 0 0 15px rgba(30, 144, 255, 0.3);
+      }
+
+      .metrics-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+        margin-bottom: 20px;
+      }
+
+      .metric-card {
+        padding: 16px;
+        border: 1px solid var(--border-glow);
+        border-radius: 10px;
+        background: linear-gradient(135deg, rgba(10, 20, 40, 0.9), rgba(15, 26, 46, 0.7));
+        box-shadow: var(--glow-blue);
+        position: relative;
+        overflow: hidden;
+      }
+
+      .metric-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 2px;
+        background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary), transparent);
+      }
+
+      .metric-label {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        letter-spacing: 0.05em;
+        margin-bottom: 8px;
+      }
+
+      .metric-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--accent-secondary);
+        font-family: 'Courier New', monospace;
+        margin-bottom: 4px;
+      }
+
+      .metric-subtext {
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+      }
+
+      .main-content {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 16px;
+        flex: 1;
+      }
+
+      .chart-container {
+        border: 1px solid var(--border-glow);
+        border-radius: 10px;
+        background: rgba(10, 20, 40, 0.8);
+        padding: 16px;
+        box-shadow: var(--glow-blue);
+        min-height: 300px;
+      }
+
+      .chart-title {
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        color: var(--text-secondary);
+        letter-spacing: 0.05em;
+        margin-bottom: 12px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--border-subtle);
+      }
+
+      .studies-panel {
+        border: 1px solid var(--border-glow);
+        border-radius: 10px;
+        background: rgba(10, 20, 40, 0.8);
+        padding: 16px;
+        box-shadow: var(--glow-blue);
+        display: flex;
+        flex-direction: column;
+      }
+
+      .panel-title {
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        color: var(--text-secondary);
+        letter-spacing: 0.05em;
+        margin-bottom: 12px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--border-subtle);
+      }
+
+      .studies-list {
+        flex: 1;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .study-item {
+        padding: 12px;
+        border: 1px solid rgba(72, 181, 255, 0.1);
+        border-radius: 8px;
+        background: rgba(15, 26, 46, 0.6);
+        transition: all 0.2s ease;
+      }
+
+      .study-item:hover {
+        border-color: var(--accent-secondary);
+        background: rgba(15, 26, 46, 0.9);
+      }
+
+      .study-title {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--accent-secondary);
+        margin-bottom: 6px;
+      }
+
+      .study-meta {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        margin-bottom: 6px;
+      }
+
+      .meta-tag {
+        font-size: 0.65rem;
+        padding: 3px 6px;
+        border-radius: 4px;
+        background: rgba(30, 144, 255, 0.15);
+        border: 1px solid rgba(30, 144, 255, 0.3);
+        color: var(--accent-tertiary);
+        text-transform: uppercase;
+      }
+
+      .risk-badge {
+        font-size: 0.65rem;
+        padding: 3px 8px;
+        border-radius: 4px;
+        font-weight: 600;
+        text-transform: uppercase;
+      }
+
+      .risk-critical {
+        background: rgba(255, 51, 51, 0.2);
+        border: 1px solid rgba(255, 51, 51, 0.4);
+        color: #ff6b6b;
+      }
+
+      .risk-high {
+        background: rgba(255, 107, 91, 0.2);
+        border: 1px solid rgba(255, 107, 91, 0.4);
+        color: #ff9b7b;
+      }
+
+      .risk-moderate {
+        background: rgba(255, 165, 0, 0.2);
+        border: 1px solid rgba(255, 165, 0, 0.4);
+        color: #ffc966;
+      }
+
+      .risk-low {
+        background: rgba(38, 217, 70, 0.2);
+        border: 1px solid rgba(38, 217, 70, 0.4);
+        color: #66dd77;
+      }
+
+      .study-summary {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        line-height: 1.4;
+      }
+
+      .ai-panel {
+        border: 1px solid var(--border-glow);
+        border-radius: 10px;
+        background: linear-gradient(135deg, rgba(10, 20, 40, 0.9), rgba(20, 40, 70, 0.7));
+        padding: 16px;
+        box-shadow: var(--glow-cyan);
+        display: flex;
+        flex-direction: column;
+        grid-column: 1 / -1;
+        margin-top: 16px;
+      }
+
+      .ai-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 12px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--border-glow);
+      }
+
+      .ai-badge {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        color: var(--accent-secondary);
+        letter-spacing: 0.05em;
+      }
+
+      .ai-icon {
+        width: 6px;
+        height: 6px;
+        background: var(--accent-secondary);
+        border-radius: 50%;
+        animation: pulse 2s infinite;
+      }
+
+      .ai-title {
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        color: var(--text-secondary);
+        letter-spacing: 0.05em;
+      }
+
+      .ai-loading {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--text-muted);
+        font-size: 0.85rem;
+      }
+
+      .spinner {
+        width: 12px;
+        height: 12px;
+        border: 2px solid rgba(30, 144, 255, 0.3);
+        border-top: 2px solid var(--accent-primary);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+
+      .ai-summary {
+        font-size: 0.85rem;
+        line-height: 1.6;
+        color: var(--text-secondary);
+        margin-bottom: 12px;
+      }
+
+      .ai-recommendations {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .recommendation-item {
+        padding: 8px 10px;
+        border-left: 3px solid var(--accent-primary);
+        background: rgba(30, 144, 255, 0.1);
+        border-radius: 6px;
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+      }
+
+      .add-research-section {
+        border: 1px solid var(--border-glow);
+        border-radius: 10px;
+        background: rgba(10, 20, 40, 0.8);
+        padding: 16px;
+        margin-top: 20px;
+        box-shadow: var(--glow-blue);
+      }
+
+      .section-title {
+        font-size: 0.95rem;
+        text-transform: uppercase;
+        color: var(--accent-secondary);
+        letter-spacing: 0.05em;
+        margin-bottom: 12px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--border-glow);
+      }
+
+      .form-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+
+      .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .form-label {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        letter-spacing: 0.05em;
+      }
+
+      input, textarea {
+        padding: 8px 10px;
+        border: 1px solid var(--border-glow);
+        border-radius: 8px;
+        background: rgba(15, 26, 46, 0.8);
+        color: var(--text-primary);
+        font-size: 0.85rem;
+        font-family: inherit;
+        transition: all 0.2s ease;
+      }
+
+      input:focus, textarea:focus {
+        outline: none;
+        border-color: var(--accent-primary);
+        box-shadow: 0 0 15px rgba(30, 144, 255, 0.3);
+      }
+
+      textarea {
+        grid-column: 1 / -1;
+        min-height: 80px;
+        resize: vertical;
+      }
+
+      .button-group {
+        display: flex;
+        gap: 8px;
+        margin-top: 12px;
+      }
+
+      button {
+        padding: 10px 16px;
+        border: none;
+        border-radius: 8px;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      .btn-primary {
+        background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+        color: #000;
+        box-shadow: 0 0 20px rgba(30, 144, 255, 0.4);
+      }
+
+      .btn-primary:hover {
+        box-shadow: 0 0 30px rgba(30, 144, 255, 0.6);
+        transform: translateY(-2px);
+      }
+
+      .btn-secondary {
+        background: rgba(30, 144, 255, 0.15);
+        color: var(--accent-primary);
+        border: 1px solid var(--accent-primary);
+      }
+
+      .btn-secondary:hover {
+        background: rgba(30, 144, 255, 0.25);
+      }
+
+      .scrollbar-hide {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+
+      .scrollbar-hide::-webkit-scrollbar {
+        display: none;
+      }
+
+      @media (max-width: 1200px) {
+        .main-content {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 768px) {
+        .top-bar {
+          grid-template-columns: 1fr;
+          gap: 12px;
+        }
+
+        .metrics-grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+
+        .filters-grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+
+        .form-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+      const { useState, useEffect, useRef } = React;
+
+      const sampleStudies = [
+        {
+          id: 'MFG-01',
+          title: 'Flame spread in oxygen-enriched partial gravity',
+          fuel: 'Cellulose',
+          environment: 'O₂/N₂ mix',
+          gravity: '0.1g',
+          heatRelease: 78,
+          flameSpread: 7.3,
+          soot: 56,
+          risk: 'High',
+          riskScore: 88,
+          summary: 'Under reduced gravity, flame zones remained stable longer, promoting broader propagation across cellulose surfaces.',
+          implication: 'Habitat materials may burn more uniformly in low-g convection.',
+          mission: 'Lunar habitat',
+          recommendation: 'Maintain lower oxygen partial pressure and ensure surface-level detection.'
+        },
+        {
+          id: 'MFG-02',
+          title: 'Ignition thresholds for polymer materials',
+          fuel: 'Polyethylene',
+          environment: 'High oxygen',
+          gravity: '0g',
+          heatRelease: 92,
+          flameSpread: 8.8,
+          soot: 68,
+          risk: 'Critical',
+          riskScore: 97,
+          summary: 'Polyethylene ignited rapidly in high-oxygen conditions with low ignition delay.',
+          implication: 'Materials commonly used in cabins may become unacceptable without oxygen control.',
+          mission: 'Mars transit vehicle',
+          recommendation: 'Limit oxygen enrichment and prioritize nonflammable substitutions.'
+        },
+        {
+          id: 'MFG-03',
+          title: 'Soot formation and plume dynamics',
+          fuel: 'PMMA',
+          environment: 'O₂/He mix',
+          gravity: '0g',
+          heatRelease: 83,
+          flameSpread: 6.9,
+          soot: 74,
+          risk: 'High',
+          riskScore: 90,
+          summary: 'Soot particles dispersed differently, creating persistent clouding.',
+          implication: 'Detection and evacuation may be impaired in smoke-heavy conditions.',
+          mission: 'Deep-space habitat',
+          recommendation: 'Deploy advanced smoke detection for lateral transport.'
+        },
+        {
+          id: 'MFG-04',
+          title: 'Extinguishment response in low flow',
+          fuel: 'Cotton fabric',
+          environment: 'Cabin air',
+          gravity: '0.16g',
+          heatRelease: 66,
+          flameSpread: 5.4,
+          soot: 44,
+          risk: 'Moderate',
+          riskScore: 62,
+          summary: 'Ablative cooling less effective due to weaker airflow.',
+          implication: 'Suppression systems need redesign for low-convection.',
+          mission: 'Lunar outpost',
+          recommendation: 'Use distributed suppression systems.'
+        },
+        {
+          id: 'MFG-05',
+          title: 'Flame geometry under lunar gravity',
+          fuel: 'Wood',
+          environment: 'Air + humidity',
+          gravity: '0.17g',
+          heatRelease: 71,
+          flameSpread: 6.1,
+          soot: 48,
+          risk: 'Moderate',
+          riskScore: 69,
+          summary: 'Flame geometry widened and became sheet-like.',
+          implication: 'Radiant heat may travel across adjacent surfaces.',
+          mission: 'Surface habitat',
+          recommendation: 'Increase thermal separation between equipment.'
+        },
+        {
+          id: 'MFG-06',
+          title: 'Aerosolized droplet ignition',
+          fuel: 'Jet fuel surrogate',
+          environment: 'High oxygen',
+          gravity: '0g',
+          heatRelease: 95,
+          flameSpread: 9.2,
+          soot: 72,
+          risk: 'Critical',
+          riskScore: 98,
+          summary: 'Droplet ignition with abrupt transitions and long-duration pockets.',
+          implication: 'Fuel systems must minimize droplet breakup.',
+          mission: 'Mars transfer',
+          recommendation: 'Use sealed fuel handling with vapor detection.'
+        }
+      ];
+
+      const MissionControlDashboard = () => {
+        const [studies, setStudies] = useState(() => {
+          try {
+            const saved = JSON.parse(localStorage.getItem('nasa-fire-studies'));
+            return saved && Array.isArray(saved) ? saved : [...sampleStudies];
+          } catch {
+            return [...sampleStudies];
+          }
+        });
+
+        const [filters, setFilters] = useState({
+          fuel: 'all',
+          environment: 'all',
+          gravity: 'all',
+          risk: 'all',
+          sort: 'riskScore'
+        });
+
+        const [apiKey, setApiKey] = useState(() => localStorage.getItem('nasa-ai-apikey') || '');
+        const [useAI, setUseAI] = useState(() => localStorage.getItem('nasa-ai-enabled') === 'true');
+        const [aiSummary, setAiSummary] = useState('');
+        const [aiLoading, setAiLoading] = useState(false);
+
+        const [formData, setFormData] = useState({
+          title: '',
+          fuel: '',
+          environment: '',
+          gravity: '',
+          heatRelease: 70,
+          flameSpread: 6,
+          soot: 50,
+          risk: 'Moderate',
+          riskScore: 70,
+          summary: '',
+          implication: '',
+          mission: '',
+          recommendation: ''
+        });
+
+        const chartRefs = {
+          riskDistribution: useRef(null),
+          heatVsSpread: useRef(null),
+          gravityAnalysis: useRef(null),
+          sootTrend: useRef(null)
+        };
+
+        const chartInstances = useRef({});
+
+        // Save studies to localStorage
+        useEffect(() => {
+          localStorage.setItem('nasa-fire-studies', JSON.stringify(studies));
+        }, [studies]);
+
+        // Save API key
+        useEffect(() => {
+          localStorage.setItem('nasa-ai-apikey', apiKey);
+        }, [apiKey]);
+
+        // Save AI enabled state
+        useEffect(() => {
+          localStorage.setItem('nasa-ai-enabled', useAI);
+        }, [useAI]);
+
+        // Generate AI summary
+        useEffect(() => {
+          if (useAI && filteredStudies.length > 0) {
+            generateAISummary();
+          }
+        }, [filteredStudies, useAI]);
+
+        const filteredStudies = studies.filter(study => {
+          if (filters.fuel !== 'all' && study.fuel !== filters.fuel) return false;
+          if (filters.environment !== 'all' && study.environment !== filters.environment) return false;
+          if (filters.gravity !== 'all' && study.gravity !== filters.gravity) return false;
+          if (filters.risk !== 'all' && study.risk !== filters.risk) return false;
+          return true;
+        });
+
+        const sortedStudies = [...filteredStudies].sort((a, b) => {
+          if (filters.sort === 'riskScore') return b.riskScore - a.riskScore;
+          if (filters.sort === 'heatRelease') return b.heatRelease - a.heatRelease;
+          if (filters.sort === 'flameSpread') return b.flameSpread - a.flameSpread;
+          return a.title.localeCompare(b.title);
+        });
+
+        const generateAISummary = async () => {
+          if (!apiKey || !useAI) return;
+
+          setAiLoading(true);
+          try {
+            const prompt = `You are a NASA fire safety expert analyzing microgravity combustion research. Based on these ${filteredStudies.length} fire safety studies, provide a concise 2-3 sentence executive summary of the critical findings and their mission implications. Keep it technical but accessible.
+
+Studies analyzed:
+${filteredStudies.map(s => `- ${s.title}: Risk ${s.riskScore} (${s.risk}), Heat: ${s.heatRelease}kW, Spread: ${s.flameSpread}m/s`).join('\n')}
+
+Provide only the summary, no additional commentary.`;
+
+            const response = await fetch('https://api.openai.com/v1/chat/completions', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                model: 'gpt-4o-mini',
+                messages: [{ role: 'user', content: prompt }],
+                max_tokens: 200,
+                temperature: 0.7
+              })
+            });
+
+            if (!response.ok) {
+              const error = await response.json();
+              throw new Error(error.error?.message || 'API Error');
+            }
+
+            const data = await response.json();
+            setAiSummary(data.choices[0].message.content);
+          } catch (error) {
+            setAiSummary(`⚠ AI Analysis Error: ${error.message}`);
+          } finally {
+            setAiLoading(false);
+          }
+        };
+
+        // Render Risk Distribution Chart
+        useEffect(() => {
+          if (!chartRefs.riskDistribution.current) return;
+
+          const riskCounts = {
+            'Critical': filteredStudies.filter(s => s.risk === 'Critical').length,
+            'High': filteredStudies.filter(s => s.risk === 'High').length,
+            'Moderate': filteredStudies.filter(s => s.risk === 'Moderate').length,
+            'Low': filteredStudies.filter(s => s.risk === 'Low').length
+          };
+
+          if (chartInstances.current.riskDistribution) {
+            chartInstances.current.riskDistribution.destroy();
+          }
+
+          const ctx = chartRefs.riskDistribution.current.getContext('2d');
+          chartInstances.current.riskDistribution = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+              labels: ['Critical', 'High', 'Moderate', 'Low'],
+              datasets: [{
+                data: [riskCounts.Critical, riskCounts.High, riskCounts.Moderate, riskCounts.Low],
+                backgroundColor: ['#ff3333', '#ff6b5b', '#ffa500', '#26d946'],
+                borderColor: ['rgba(255, 51, 51, 0.5)', 'rgba(255, 107, 91, 0.5)', 'rgba(255, 165, 0, 0.5)', 'rgba(38, 217, 70, 0.5)'],
+                borderWidth: 2
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: true,
+              plugins: {
+                legend: {
+                  labels: {
+                    color: '#a8c5e0',
+                    font: { size: 11 },
+                    padding: 10
+                  }
+                }
+              }
+            }
+          });
+        }, [filteredStudies]);
+
+        // Render Heat Release vs Flame Spread Chart
+        useEffect(() => {
+          if (!chartRefs.heatVsSpread.current) return;
+
+          if (chartInstances.current.heatVsSpread) {
+            chartInstances.current.heatVsSpread.destroy();
+          }
+
+          const ctx = chartRefs.heatVsSpread.current.getContext('2d');
+          chartInstances.current.heatVsSpread = new Chart(ctx, {
+            type: 'scatter',
+            data: {
+              datasets: [{
+                label: 'Studies',
+                data: filteredStudies.map(s => ({
+                  x: s.heatRelease,
+                  y: s.flameSpread,
+                  title: s.title
+                })),
+                backgroundColor: filteredStudies.map(s => {
+                  if (s.risk === 'Critical') return 'rgba(255, 51, 51, 0.6)';
+                  if (s.risk === 'High') return 'rgba(255, 107, 91, 0.6)';
+                  if (s.risk === 'Moderate') return 'rgba(255, 165, 0, 0.6)';
+                  return 'rgba(38, 217, 70, 0.6)';
+                }),
+                borderColor: filteredStudies.map(s => {
+                  if (s.risk === 'Critical') return '#ff3333';
+                  if (s.risk === 'High') return '#ff6b5b';
+                  if (s.risk === 'Moderate') return '#ffa500';
+                  return '#26d946';
+                }),
+                borderWidth: 2,
+                pointRadius: 6,
+                pointHoverRadius: 8
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: true,
+              scales: {
+                x: {
+                  type: 'linear',
+                  title: {
+                    display: true,
+                    text: 'Heat Release (kW)',
+                    color: '#a8c5e0',
+                    font: { size: 11 }
+                  },
+                  ticks: { color: '#6b8ab5' },
+                  grid: { color: 'rgba(30, 144, 255, 0.1)' }
+                },
+                y: {
+                  title: {
+                    display: true,
+                    text: 'Flame Spread (m/s)',
+                    color: '#a8c5e0',
+                    font: { size: 11 }
+                  },
+                  ticks: { color: '#6b8ab5' },
+                  grid: { color: 'rgba(30, 144, 255, 0.1)' }
+                }
+              },
+              plugins: {
+                legend: {
+                  labels: { color: '#a8c5e0', font: { size: 11 } }
+                }
+              }
+            }
+          });
+        }, [filteredStudies]);
+
+        // Render Gravity Analysis Chart
+        useEffect(() => {
+          if (!chartRefs.gravityAnalysis.current) return;
+
+          const gravityGroups = {};
+          filteredStudies.forEach(s => {
+            if (!gravityGroups[s.gravity]) {
+              gravityGroups[s.gravity] = { risk: 0, heat: 0, count: 0 };
+            }
+            gravityGroups[s.gravity].risk += s.riskScore;
+            gravityGroups[s.gravity].heat += s.heatRelease;
+            gravityGroups[s.gravity].count++;
+          });
+
+          const gravities = Object.keys(gravityGroups).sort();
+          const avgRisks = gravities.map(g => (gravityGroups[g].risk / gravityGroups[g].count).toFixed(1));
+
+          if (chartInstances.current.gravityAnalysis) {
+            chartInstances.current.gravityAnalysis.destroy();
+          }
+
+          const ctx = chartRefs.gravityAnalysis.current.getContext('2d');
+          chartInstances.current.gravityAnalysis = new Chart(ctx, {
+            type: 'bar',
+            data: {
+              labels: gravities,
+              datasets: [{
+                label: 'Avg Risk Score',
+                data: avgRisks,
+                backgroundColor: 'rgba(30, 144, 255, 0.5)',
+                borderColor: '#1e90ff',
+                borderWidth: 2
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: true,
+              indexAxis: 'y',
+              scales: {
+                x: {
+                  ticks: { color: '#6b8ab5' },
+                  grid: { color: 'rgba(30, 144, 255, 0.1)' }
+                },
+                y: {
+                  ticks: { color: '#6b8ab5' },
+                  grid: { color: 'rgba(30, 144, 255, 0.1)' }
+                }
+              },
+              plugins: {
+                legend: {
+                  labels: { color: '#a8c5e0', font: { size: 11 } }
+                }
+              }
+            }
+          });
+        }, [filteredStudies]);
+
+        // Render Soot Trend Chart
+        useEffect(() => {
+          if (!chartRefs.sootTrend.current) return;
+
+          const sorted = [...filteredStudies].sort((a, b) => a.heatRelease - b.heatRelease);
+
+          if (chartInstances.current.sootTrend) {
+            chartInstances.current.sootTrend.destroy();
+          }
+
+          const ctx = chartRefs.sootTrend.current.getContext('2d');
+          chartInstances.current.sootTrend = new Chart(ctx, {
+            type: 'line',
+            data: {
+              labels: sorted.map((_, i) => `Study ${i + 1}`),
+              datasets: [
+                {
+                  label: 'Soot Index',
+                  data: sorted.map(s => s.soot),
+                  borderColor: '#ffa500',
+                  backgroundColor: 'rgba(255, 165, 0, 0.1)',
+                  borderWidth: 2,
+                  tension: 0.4,
+                  fill: true
+                },
+                {
+                  label: 'Risk Score',
+                  data: sorted.map(s => s.riskScore),
+                  borderColor: '#1e90ff',
+                  backgroundColor: 'rgba(30, 144, 255, 0.1)',
+                  borderWidth: 2,
+                  tension: 0.4,
+                  fill: true
+                }
+              ]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: true,
+              scales: {
+                y: {
+                  ticks: { color: '#6b8ab5' },
+                  grid: { color: 'rgba(30, 144, 255, 0.1)' }
+                },
+                x: {
+                  ticks: { color: '#6b8ab5' },
+                  grid: { color: 'rgba(30, 144, 255, 0.1)' }
+                }
+              },
+              plugins: {
+                legend: {
+                  labels: { color: '#a8c5e0', font: { size: 11 } }
+                }
+              }
+            }
+          });
+        }, [filteredStudies]);
+
+        const handleAddStudy = (e) => {
+          e.preventDefault();
+          const newStudy = {
+            id: `USER-${Date.now()}`,
+            ...formData,
+            heatRelease: Number(formData.heatRelease),
+            flameSpread: Number(formData.flameSpread),
+            soot: Number(formData.soot),
+            riskScore: Number(formData.riskScore)
+          };
+          setStudies([newStudy, ...studies]);
+          setFormData({
+            title: '', fuel: '', environment: '', gravity: '',
+            heatRelease: 70, flameSpread: 6, soot: 50,
+            risk: 'Moderate', riskScore: 70,
+            summary: '', implication: '', mission: '', recommendation: ''
+          });
+        };
+
+        const uniqueValues = (key) => [...new Set(studies.map(s => s[key]))].sort();
+
+        const metrics = {
+          total: filteredStudies.length,
+          avgRisk: filteredStudies.length ? (filteredStudies.reduce((sum, s) => sum + s.riskScore, 0) / filteredStudies.length).toFixed(0) : 0,
+          maxHeat: filteredStudies.length ? Math.max(...filteredStudies.map(s => s.heatRelease)) : 0,
+          maxSpread: filteredStudies.length ? Math.max(...filteredStudies.map(s => s.flameSpread)).toFixed(1) : 0
+        };
+
+        const getRiskClass = (risk) => {
+          if (risk === 'Critical') return 'risk-critical';
+          if (risk === 'High') return 'risk-high';
+          if (risk === 'Moderate') return 'risk-moderate';
+          return 'risk-low';
+        };
+
+        return (
+          <div className="mission-control">
+            {/* Top Bar */}
+            <div className="top-bar">
+              <div className="mission-header">
+                <div className="mission-logo">🚀</div>
+                <div>
+                  <div className="mission-title">Fire Safety AI Dashboard</div>
+                  <div className="mission-subtitle">Mission Operations Center</div>
+                </div>
+              </div>
+
+              <div className="status-banner">
+                <div className="status-light"></div>
+                <div className="status-text">Operational</div>
+              </div>
+
+              <div className="api-input">
+                <label>OpenAI API Key</label>
+                <input
+                  type="password"
+                  placeholder="sk-..."
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                />
+                <div className="ai-toggle">
+                  <span>AI Enabled</span>
+                  <div
+                    className={`toggle-switch ${useAI ? 'active' : ''}`}
+                    onClick={() => setUseAI(!useAI)}
+                  >
+                    <div className="toggle-thumb"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Filters */}
+            <div className="filters-grid">
+              <div className="filter-group">
+                <label className="filter-label">Fuel Type</label>
+                <select value={filters.fuel} onChange={(e) => setFilters({...filters, fuel: e.target.value})}>
+                  <option value="all">All Fuels</option>
+                  {uniqueValues('fuel').map(f => <option key={f} value={f}>{f}</option>)}
+                </select>
+              </div>
+
+              <div className="filter-group">
+                <label className="filter-label">Atmosphere</label>
+                <select value={filters.environment} onChange={(e) => setFilters({...filters, environment: e.target.value})}>
+                  <option value="all">All Atmospheres</option>
+                  {uniqueValues('environment').map(e => <option key={e} value={e}>{e}</option>)}
+                </select>
+              </div>
+
+              <div className="filter-group">
+                <label className="filter-label">Gravity</label>
+                <select value={filters.gravity} onChange={(e) => setFilters({...filters, gravity: e.target.value})}>
+                  <option value="all">All Gravity</option>
+                  {uniqueValues('gravity').map(g => <option key={g} value={g}>{g}</option>)}
+                </select>
+              </div>
+
+              <div className="filter-group">
+                <label className="filter-label">Risk Level</label>
+                <select value={filters.risk} onChange={(e) => setFilters({...filters, risk: e.target.value})}>
+                  <option value="all">All Risk Levels</option>
+                  {['Low', 'Moderate', 'High', 'Critical'].map(r => <option key={r} value={r}>{r}</option>)}
+                </select>
+              </div>
+
+              <div className="filter-group">
+                <label className="filter-label">Sort By</label>
+                <select value={filters.sort} onChange={(e) => setFilters({...filters, sort: e.target.value})}>
+                  <option value="riskScore">Risk Score</option>
+                  <option value="heatRelease">Heat Release</option>
+                  <option value="flameSpread">Flame Spread</option>
+                  <option value="name">Title</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Metrics */}
+            <div className="metrics-grid">
+              <div className="metric-card">
+                <div className="metric-label">Total Studies</div>
+                <div className="metric-value">{metrics.total}</div>
+                <div className="metric-subtext">Filtered from {studies.length} total</div>
+              </div>
+              <div className="metric-card">
+                <div className="metric-label">Avg Risk Score</div>
+                <div className="metric-value">{metrics.avgRisk}</div>
+                <div className="metric-subtext">Mission risk assessment</div>
+              </div>
+              <div className="metric-card">
+                <div className="metric-label">Peak Heat Release</div>
+                <div className="metric-value">{metrics.maxHeat} kW</div>
+                <div className="metric-subtext">Maximum thermal output</div>
+              </div>
+              <div className="metric-card">
+                <div className="metric-label">Max Flame Spread</div>
+                <div className="metric-value">{metrics.maxSpread} m/s</div>
+                <div className="metric-subtext">Fastest propagation rate</div>
+              </div>
+            </div>
+
+            {/* Main Content */}
+            <div className="main-content">
+              {/* Charts */}
+              <div style={{display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px'}}>
+                <div className="chart-container">
+                  <div className="chart-title">Risk Distribution</div>
+                  <canvas ref={chartRefs.riskDistribution}></canvas>
+                </div>
+
+                <div className="chart-container">
+                  <div className="chart-title">Heat Release vs Flame Spread</div>
+                  <canvas ref={chartRefs.heatVsSpread}></canvas>
+                </div>
+
+                <div className="chart-container">
+                  <div className="chart-title">Gravity Analysis</div>
+                  <canvas ref={chartRefs.gravityAnalysis}></canvas>
+                </div>
+
+                <div className="chart-container">
+                  <div className="chart-title">Soot & Risk Trend</div>
+                  <canvas ref={chartRefs.sootTrend}></canvas>
+                </div>
+              </div>
+
+              {/* Studies Panel */}
+              <div className="studies-panel">
+                <div className="panel-title">Study Rankings</div>
+                <div className="studies-list scrollbar-hide">
+                  {sortedStudies.slice(0, 10).map(study => (
+                    <div key={study.id} className="study-item">
+                      <div className="study-title">{study.title}</div>
+                      <div className="study-meta">
+                        <span className="meta-tag">{study.fuel}</span>
+                        <span className="meta-tag">{study.gravity}</span>
+                        <span className={`risk-badge ${getRiskClass(study.risk)}`}>{study.risk}</span>
+                      </div>
+                      <div className="study-summary">{study.summary}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* AI Panel */}
+            <div className="ai-panel">
+              <div className="ai-header">
+                <div className="ai-badge">
+                  <div className="ai-icon"></div>
+                  AI Safety Analysis
+                </div>
+              </div>
+
+              {aiLoading ? (
+                <div className="ai-loading">
+                  <div className="spinner"></div>
+                  Analyzing findings...
+                </div>
+              ) : useAI && apiKey ? (
+                <>
+                  <div className="ai-summary">{aiSummary || 'Initialize analysis...'}</div>
+                  <div className="ai-recommendations">
+                    <div className="recommendation-item">🔍 Continuous monitoring of atmospheric composition critical</div>
+                    <div className="recommendation-item">⚠️ Implement multi-layer suppression strategies for low-convection environments</div>
+                    <div className="recommendation-item">✓ Priority: nonflammable materials in habitat interiors</div>
+                  </div>
+                </>
+              ) : (
+                <div className="ai-summary">🔐 Add OpenAI API key and enable AI to generate intelligent fire safety insights</div>
+              )}
+            </div>
+
+            {/* Add Research Section */}
+            <div className="add-research-section">
+              <div className="section-title">Add Research Findings</div>
+              <form onSubmit={handleAddStudy}>
+                <div className="form-grid">
+                  <div className="form-group">
+                    <label className="form-label">Title</label>
+                    <input
+                      type="text"
+                      placeholder="Study title"
+                      value={formData.title}
+                      onChange={(e) => setFormData({...formData, title: e.target.value})}
+                      required
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Fuel</label>
+                    <input
+                      type="text"
+                      placeholder="Fuel type"
+                      value={formData.fuel}
+                      onChange={(e) => setFormData({...formData, fuel: e.target.value})}
+                      required
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Atmosphere</label>
+                    <input
+                      type="text"
+                      placeholder="O₂/N₂ mix"
+                      value={formData.environment}
+                      onChange={(e) => setFormData({...formData, environment: e.target.value})}
+                      required
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Gravity</label>
+                    <input
+                      type="text"
+                      placeholder="0g, 0.17g"
+                      value={formData.gravity}
+                      onChange={(e) => setFormData({...formData, gravity: e.target.value})}
+                      required
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Heat Release (kW)</label>
+                    <input
+                      type="number"
+                      value={formData.heatRelease}
+                      onChange={(e) => setFormData({...formData, heatRelease: e.target.value})}
+                      required
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Flame Spread</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={formData.flameSpread}
+                      onChange={(e) => setFormData({...formData, flameSpread: e.target.value})}
+                      required
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Soot Index</label>
+                    <input
+                      type="number"
+                      value={formData.soot}
+                      onChange={(e) => setFormData({...formData, soot: e.target.value})}
+                      required
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Risk Level</label>
+                    <select value={formData.risk} onChange={(e) => setFormData({...formData, risk: e.target.value})}>
+                      <option>Low</option>
+                      <option>Moderate</option>
+                      <option>High</option>
+                      <option>Critical</option>
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Risk Score</label>
+                    <input
+                      type="number"
+                      max="100"
+                      value={formData.riskScore}
+                      onChange={(e) => setFormData({...formData, riskScore: e.target.value})}
+                      required
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Mission Context</label>
+                    <input
+                      type="text"
+                      placeholder="Lunar habitat, Mars transit"
+                      value={formData.mission}
+                      onChange={(e) => setFormData({...formData, mission: e.target.value})}
+                      required
+                    />
+                  </div>
+
+                  <textarea
+                    placeholder="Study summary..."
+                    value={formData.summary}
+                    onChange={(e) => setFormData({...formData, summary: e.target.value})}
+                    required
+                  ></textarea>
+
+                  <textarea
+                    placeholder="Impact and implication..."
+                    value={formData.implication}
+                    onChange={(e) => setFormData({...formData, implication: e.target.value})}
+                    required
+                  ></textarea>
+
+                  <textarea
+                    placeholder="Mission recommendation..."
+                    value={formData.recommendation}
+                    onChange={(e) => setFormData({...formData, recommendation: e.target.value})}
+                    required
+                  ></textarea>
+                </div>
+
+                <div className="button-group">
+                  <button type="submit" className="btn-primary">Add Study</button>
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={() => {
+                      setStudies([...sampleStudies]);
+                      alert('Reset to sample data');
+                    }}
+                  >
+                    Reset Data
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        );
+      };
+
+      ReactDOM.render(<MissionControlDashboard />, document.getElementById('root'));
+    </script>
+  </body>
+</html>
