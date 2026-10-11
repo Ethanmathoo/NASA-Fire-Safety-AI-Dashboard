@@ -1,0 +1,4 @@
+# Ignore local caches and generated artifacts
+node_modules/
+.DS_Store
+*.log
